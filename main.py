@@ -72,8 +72,6 @@ if __name__ == '__main__':
     crf=28
     acodec='aac'
 
-    #path = "/mnt/Work/Learn Organizar/Hablar con Poder/Introducción.mp4"
-
     if args.path != None:
         path = args.path
 
