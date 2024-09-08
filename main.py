@@ -30,43 +30,28 @@ def transcode_recursive(path):
             if os.path.splitext(file)[1].lower() in video_extensions:
                 video_files.append(os.path.join(root, file))
 
+    if len(video_files) == 0:
+        print("\n\033[0;31m"+'Not videos found'+"\033[0m")
+        return
+    
     for file in video_files:
         transcode_file(file)
 
 def transcode_folder(path):
 
-    video_files = [file for file in os.listdir(path) if os.path.splitext(file)[1].lower() in video_extensions]
-    
+    video_files = [os.path.join(path, file) for file in os.listdir(path) if os.path.splitext(file)[1].lower() in video_extensions]
     if len(video_files) == 0:
         print("\n\033[0;31m"+'Not videos found'+"\033[0m")
-    else:
-        video_files_codecs = []
-        for file in video_files:
-            video_files_codecs.append(transcoding.get_codec(os.path.join(path, file)))
-
-        for i in range(len(video_files)):
-            text = "\033[1;30m"+"\033[1m"+video_files[i]+"\033[0m"+'\033[0;37m  --  \033[0m'+"\033[1;30m"+"\033[1m"+video_files_codecs[i]+"\033[0m"
-            if video_files_codecs[i].lower() != "vp9" and video_files_codecs[i].lower() != "hevc":
-                text += '  ✔️'
-                print(text)
-
-                send_transcode(path, video_files[i])
-
-                output_file_path = os.path.join(path, os.path.splitext(video_files[i])[0]+'_encoded'+os.path.splitext(video_files[i])[1])
-                
-                if os.path.getsize(os.path.join(path,video_files[i])) < os.path.getsize(output_file_path):
-                    os.remove(output_file_path)
-                    print("\033[0;31m"+'Transcoding finished, but file size bigger  '+"\033[0m"+"\033[5m\033[1m"+'❌'+"\033[0m")
-                else:
-                    print("\033[0;32m"+f'Transcoding finished, file size decresed from {round(os.path.getsize(os.path.join(path,video_files[i]))/1024**2,2)} Mb to {round(os.path.getsize(output_file_path)/1024**2,2)} Mb'+"\033[0m"+"\033[5m\033[1m"+'✔️'+"\033[0m")
-                    if delete:
-                        os.remove(os.path.join(path,video_files[i]))
-                        os.rename(output_file_path, os.path.join(path,video_files[i]))
-            else:
-                text += '  ❌'
-                print(text)
+        return
+    
+    for file in video_files:
+        transcode_file(file)
 
 def transcode_file(path):
+    if not os.path.exists(path):
+        print("\n\033[0;31m"+'Not videos found'+"\033[0m")
+        return
+    
     if os.path.splitext(path)[1].lower() in video_extensions:
         video_files_codecs = transcoding.get_codec(path)
         text = "\033[1;30m"+"\033[1m"+path+"\033[0m"+'\033[0;37m  --  \033[0m'+"\033[1;30m"+"\033[1m"+video_files_codecs+"\033[0m"
