@@ -27,4 +27,4 @@ def transcode(input_file, output_file, vcodec="hevc", crf=18, acodec='aac'):
 
     #Release
     #ffmpeg.run(stream, quiet=False, cmd=[ffmpeg_binary_path])
-    ffmpeg.run(stream, quiet=True)
+    ffmpeg.run(stream, quiet=False)
