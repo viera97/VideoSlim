@@ -1,0 +1,9 @@
+[project]
+name = "videoslim"
+version = "1.0.0"
+description = "Video compression tool using FFmpeg with HEVC codec"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pyinstaller>=6.20.0",
+]
