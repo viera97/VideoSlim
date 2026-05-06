@@ -4,6 +4,8 @@ import argparse
 import os
 import subprocess
 import sys
+import threading
+import time
 from typing import Optional, List
 
 # =============================================================================
@@ -124,7 +126,7 @@ def get_codec(input_file: str) -> str:
         return 'unknown'
 
 
-def transcode(input_file: str, output_file: str, vcodec: str = "hevc", crf: int = 28, acodec: str = "aac") -> None:
+def transcode(input_file: str, output_file: str, vcodec: str = "hevc", crf: int = 28, acodec: str = "aac", stop_event: Optional[threading.Event] = None) -> None:
     """Transcode un archivo de video usando ffmpeg."""
     ffmpeg_path = get_ffmpeg_path()
     
@@ -139,25 +141,42 @@ def transcode(input_file: str, output_file: str, vcodec: str = "hevc", crf: int 
             '-crf', str(crf),
             '-c:a', acodec,
             '-preset', 'medium',
-            '-y',  # Sobrescribir archivo de salida
+            '-y',
             output_file
         ]
         
-        result = subprocess.run(
+        process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
         )
         
-        if result.returncode != 0:
-            raise Exception(f"FFmpeg error: {result.stderr}")
+        # Monitor stop_event and terminate process if requested
+        if stop_event:
+            while process.poll() is None:
+                if stop_event.is_set():
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                    raise KeyboardInterrupt("Transcoding stopped by user")
+                time.sleep(0.1)
+        else:
+            process.wait()
+        
+        if process.returncode is not None and process.returncode != 0:
+            stderr = process.stderr.read() if process.stderr else ""
+            raise Exception(f"FFmpeg error: {stderr}")
             
+    except KeyboardInterrupt:
+        raise
     except Exception as e:
         raise Exception(f"Error transcoding: {e}")
 
 
-def send_transcode(path: str, video_file: str, vcodec: str, crf: int, acodec: str) -> Optional[str]:
+def send_transcode(path: str, video_file: str, vcodec: str, crf: int, acodec: str, stop_event: Optional[threading.Event] = None) -> Optional[str]:
     """Prepara y ejecuta la transcodificación de un video."""
     input_file_path = os.path.join(path, video_file)
     output_file_aux = os.path.splitext(video_file)
@@ -172,14 +191,14 @@ def send_transcode(path: str, video_file: str, vcodec: str, crf: int, acodec: st
     
     try:
         logger.info(f"{BOLD}Transcoding:{RESET} {DIM}{video_file}{RESET} ⭔")
-        transcode(input_file_path, output_file_path, vcodec, crf, acodec)
+        transcode(input_file_path, output_file_path, vcodec, crf, acodec, stop_event=stop_event)
         return output_file_path
     except KeyboardInterrupt:
         logger.warning("Transcoding terminated by user")
         if os.path.exists(output_file_path):
             os.remove(output_file_path)
             logger.debug("Cleaned up incomplete output file")
-        sys.exit(0)
+        raise
     except Exception as e:
         logger.error(f"Error transcoding {video_file}: {e}")
         if os.path.exists(output_file_path):
@@ -234,7 +253,7 @@ def transcode_folder(path: str, vcodec: str, crf: int, acodec: str, delete: bool
     return success_count
 
 
-def transcode_file(file_path: str, vcodec: str, crf: int, acodec: str, delete: bool) -> bool:
+def transcode_file(file_path: str, vcodec: str, crf: int, acodec: str, delete: bool, stop_event: Optional[threading.Event] = None) -> bool:
     """Transcode un archivo de video si necesita compresión."""
     if not os.path.exists(file_path):
         logger.error(f"File not found: {file_path}")
@@ -261,13 +280,18 @@ def transcode_file(file_path: str, vcodec: str, crf: int, acodec: str, delete: b
     
     logger.info(f"{codec_info} {GREEN}✔️ Will be transcoded{RESET}")
     
-    output_path = send_transcode(
-        os.path.dirname(file_path), 
-        os.path.basename(file_path), 
-        vcodec, 
-        crf, 
-        acodec
-    )
+    try:
+        output_path = send_transcode(
+            os.path.dirname(file_path), 
+            os.path.basename(file_path), 
+            vcodec, 
+            crf, 
+            acodec,
+            stop_event=stop_event
+        )
+    except KeyboardInterrupt:
+        logger.warning("Transcode aborted by user")
+        return False
     
     if output_path is None:
         return False
