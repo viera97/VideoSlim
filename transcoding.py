@@ -223,8 +223,12 @@ def transcode_recursive(path: str, vcodec: str, crf: int, acodec: str, delete: b
     success_count = 0
     
     for file_path in video_files:
-        if transcode_file(file_path, vcodec, crf, acodec, delete):
-            success_count += 1
+        try:
+            if transcode_file(file_path, vcodec, crf, acodec, delete):
+                success_count += 1
+        except KeyboardInterrupt:
+            logger.warning("Transcoding interrupted by user. Stopping further processing.")
+            break
     
     logger.info(f"Successfully transcoded {success_count}/{len(video_files)} video(s)")
     return success_count
@@ -246,8 +250,12 @@ def transcode_folder(path: str, vcodec: str, crf: int, acodec: str, delete: bool
     success_count = 0
     
     for file_path in video_files:
-        if transcode_file(file_path, vcodec, crf, acodec, delete):
-            success_count += 1
+        try:
+            if transcode_file(file_path, vcodec, crf, acodec, delete):
+                success_count += 1
+        except KeyboardInterrupt:
+            logger.warning("Transcoding interrupted by user. Stopping further processing.")
+            break
     
     logger.info(f"Successfully transcoded {success_count}/{len(video_files)} video(s)")
     return success_count
@@ -291,7 +299,7 @@ def transcode_file(file_path: str, vcodec: str, crf: int, acodec: str, delete: b
         )
     except KeyboardInterrupt:
         logger.warning("Transcode aborted by user")
-        return False
+        raise
     
     if output_path is None:
         return False
