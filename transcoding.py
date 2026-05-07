@@ -147,7 +147,7 @@ def transcode(input_file: str, output_file: str, vcodec: str = "hevc", crf: int 
         
         process = subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             text=True
         )
@@ -163,11 +163,11 @@ def transcode(input_file: str, output_file: str, vcodec: str = "hevc", crf: int 
                         process.kill()
                     raise KeyboardInterrupt("Transcoding stopped by user")
                 time.sleep(0.1)
-        else:
-            process.wait()
+        
+        # Use communicate() to avoid deadlock and get stderr
+        _, stderr = process.communicate()
         
         if process.returncode is not None and process.returncode != 0:
-            stderr = process.stderr.read() if process.stderr else ""
             raise Exception(f"FFmpeg error: {stderr}")
             
     except KeyboardInterrupt:
@@ -375,8 +375,16 @@ Examples:
     )
     parser.add_argument(
         "--delete",
+        dest="delete",
         action="store_true",
-        help="Delete original files after successful compression"
+        default=True,
+        help="Delete original files after successful compression (default)"
+    )
+    parser.add_argument(
+        "--no-delete",
+        dest="delete",
+        action="store_false",
+        help="Do not delete original files after successful compression"
     )
     parser.add_argument(
         "--quiet", "-q",
